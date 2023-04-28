@@ -1,6 +1,8 @@
 package com.yaowenbinqwq.dledger;
 
 import com.yaowenbinqwq.dledger.response.VoteResponse;
+import lombok.Data;
+import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -17,6 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * @Date 2023/4/26
  */
 @Slf4j
+@Data
+@Accessors(fluent = true)
 public class DLedgerLeaderElector {
     private MemberState memberState = new MemberState();
     private Random random = new Random();
@@ -210,13 +214,22 @@ public class DLedgerLeaderElector {
 
     }
 
+    public void takingLeaderShip() {
+        if (!memberState.isLeader()) {
+            synchronized (memberState) {
+                if (!memberState.isLeader()) {
+                    changeToCandidate();
 
+                    startVote();
+                }
+            }
+        }
 
+    }
 
+    public void startVote() {
 
-
-
-
+    }
 
 
     class StateMaintainer implements Runnable{
