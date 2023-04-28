@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Data
 @Accessors(fluent = true)
 public class DLedgerLeaderElector {
-    private MemberState memberState = new MemberState();
+    private final MemberState memberState = new MemberState();
     private Random random = new Random();
     private volatile long lastLeaderHeatBeatTime;
     private long heartBeatInterval;
@@ -32,6 +32,7 @@ public class DLedgerLeaderElector {
     private VoteResponse.ParseResult lastParseResult;
     private int maxVoteIntervalMs = 2000;
     private long lastVoteCost = -1;
+
 
 
     private void maintainState() {
@@ -228,6 +229,57 @@ public class DLedgerLeaderElector {
     }
 
     public void startVote() {
+
+    }
+
+    public HeartBeatResponse handleHeartBeat(HeartBeatRequest request) {
+        if (!memberState.isPeerMember(request.leaderId())) {
+            logWarn("receive unknown member:{} 's request", request.leaderId());
+            return new HeartBeatResponse(HeartBeatResponse.RESULT.UNKNOWN_MEMBER);
+        }
+
+        if (request.currTerm() < memberState.currTerm()) {
+            logWarn("currTerm:{} ,but receive expired term: {} heartbeatRequest From {}", memberState.currTerm(), request.currTerm(),request.leaderId());
+            return new HeartBeatResponse(HeartBeatResponse.RESULT.EXPIRED_TERM);
+        } else if (request.currTerm() > memberState.currTerm()) {
+            return handleReqTermLarger(request);
+        } else {
+            return new HeartBeatResponse(HeartBeatResponse.RESULT.SUCCESS);
+        }
+
+    }
+
+    private HeartBeatResponse handleReqTermLarger(HeartBeatRequest request) {
+        // hold the lock to check again.
+        synchronized (memberState) {
+            if (request.currTerm() < memberState.currTerm()) {
+                return new HeartBeatResponse(HeartBeatResponse.RESULT.EXPIRED_TERM);
+            } else if (request.currTerm() == memberState.currTerm()) {
+                // whatever current role is, change to the follower. If receive the leader heartbeat.
+                // 不管当前角色是什么，接收到了Leader的心跳之后直接变更其Follower。
+                if (memberState.leaderId() == null) {
+                    changeRoleToFollower(request.currTerm(), request.leaderId());
+                    return HeartBeatResponse.success();
+                } else if (!memberState.leaderId().equals(request.leaderId())) {
+                    return HeartBeatResponse.success();
+                } else {
+                    logWarn("something wrong in handle heartbeat, because currLeader is {}: but receive inconsistent leader:{}", memberState.selfId(), request.leaderId());
+                    return HeartBeatResponse.success();
+                }
+            }
+        }
+
+        return new HeartBeatResponse(HeartBeatResponse.RESULT.UNKNOWN);
+    }
+
+    // to format warn level log. append the selfId in the front.
+    // 在warn日志的头部增加selfId.
+    private void logWarn(String content, Object... args) {
+        String template = "[{}] ";
+        log.warn(template.concat(content), memberState.selfId(), args);
+    }
+
+    private void changeRoleToFollower(long currTerm, String leaderId) {
 
     }
 

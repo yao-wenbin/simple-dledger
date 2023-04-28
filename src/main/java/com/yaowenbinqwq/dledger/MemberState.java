@@ -13,22 +13,22 @@ import static com.yaowenbinqwq.dledger.MemberState.Role.*;
  */
 public class MemberState {
 
-    private long selfId;
+    private String selfId;
 
-    private long leaderId;
+    private String leaderId;
 
     Role role = CANDIDATE;
     private volatile long currTerm = 0;
     private volatile long ledgerEndTerm = -1;
     private volatile long ledgerEndIndex = -1;
 
-    Map<String, String> groupMap = new HashMap<>();
+    private Map<String, String> groupMap = new HashMap<>();
 
-    public long selfId() {
+    public String selfId() {
         return selfId;
     }
 
-    public long leaderId() {
+    public String leaderId() {
         return leaderId;
     }
 
@@ -58,6 +58,10 @@ public class MemberState {
 
     public boolean isQuorum(int i) {
         return i > groupMap.size() / 2;
+    }
+
+    public boolean isPeerMember(String memberId) {
+        return groupMap.containsKey(memberId);
     }
 
     public void changeToCandidate(long term) {
